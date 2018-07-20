@@ -1,0 +1,144 @@
+<html>
+
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title></title>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="googlebot" content="noindex, nofollow">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet" href="./css/index.css">
+    <script type="text/javascript" src="./lib/vue.js"></script>
+    <style>
+        [v-cloak]{
+            display: none;
+        }
+    </style>
+
+</head>
+
+<body>
+    <section class="todoapp">
+        <header class="header">
+            <h1>任务清单</h1>
+            <input autofocus="autofocus" autocomplete="off" placeholder="想干啥?" class="new-todo" @keyup.enter="add" v-model="inputtodo">
+        </header>
+        <section class="main">
+            <input type="checkbox" class="toggle-all">
+            <ul class="todo-list" v-cloak>
+                <li class="todo" :class="{completed:item.complete}" v-for="(item,index) in todoList">
+                    <div class="view">
+                        <input type="checkbox" class="toggle" v-model="item.complete" >
+                        <label>{{item.name}}</label>
+                        <button class="destroy" v-on:click="deletetodoList(index)" ></button>
+                    </div>
+                    <input type="text" class="edit">
+                </li>
+
+                <h2>原稿--------------------------</h2>
+                <li class="todo ">
+                    <div class="view">
+                        <input type="checkbox" class="toggle">
+                        <label>21</label>
+                        <button class="destroy"></button>
+                    </div>
+                    <input type="text" class="edit">
+                </li>
+                <li class="todo completed">
+                    <div class="view">
+                        <input type="checkbox" class="toggle">
+                        <label>21</label>
+                        <button class="destroy"></button>
+                    </div>
+                    <input type="text" class="edit">
+                </li>
+                <li class="todo editing">
+                    <div class="view">
+                        <input type="checkbox" class="toggle">
+                        <label>21</label>
+                        <button class="destroy"></button>
+                    </div>
+                    <input type="text" class="edit">
+                </li>
+            </ul>
+        </section>
+        <footer class="footer">
+            <span class="todo-count">
+                <strong>1</strong> 项 剩余
+            </span>
+            <ul class="filters">
+                <li>
+                    <a href="#/all" class="selected">全部</a>
+                </li>
+                <li>
+                    <a href="#/active" class="selected">未完成</a>
+                </li>
+                <li>
+                    <a href="#/completed" class="selected">完成</a>
+                </li>
+            </ul>
+            <button class="clear-completed">
+                清空列表
+            </button>
+        </footer>
+    </section>
+    <footer class="info">
+        <p>双击进入编辑状态</p>
+        <p>鸣谢:
+            <a href="http://evanyou.me">Evan You</a>
+        </p>
+        <p>参考于
+            <a href="http://todomvc.com">TodoMVC</a>
+        </p>
+    </footer>
+
+    <script>
+        // tell the embed parent frame the height of the content
+        if (window.parent && window.parent.parent) {
+            window.parent.parent.postMessage(["resultsFrame", {
+                height: document.body.getBoundingClientRect().height,
+                slug: "4dr2fLb7"
+            }], "*")
+        }
+    </script>
+
+
+</body>
+
+</html>
+<script>
+    let app = new Vue({
+        el: '.todoapp',
+        data: {
+            inputtodo:'',
+            todoList: [{
+                name: '洗碗',
+                complete: true
+            }, {
+                name: '散步',
+                complete: false
+            }]
+        },
+        methods: {
+            // 增
+            add(){
+            // 去空格
+                this.inputtodo=this.inputtodo.trim();
+               if(this.inputtodo!=''){
+                this.todoList.push({
+                    name:this.inputtodo,
+                    complete:false
+                })
+                // 输入完毕清空input框
+                this.inputtodo='';
+               }
+            },
+            // 删
+            deletetodoList(index){
+                this.todoList.splice(index,1);
+            },
+            
+        }
+    })
+</script>
