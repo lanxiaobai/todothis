@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="./css/index.css">
     <script type="text/javascript" src="./lib/vue.js"></script>
     <style>
-        [v-cloak]{
+        [v-cloak] {
             display: none;
         }
     </style>
@@ -25,18 +25,19 @@
             <input autofocus="autofocus" autocomplete="off" placeholder="想干啥?" class="new-todo" @keyup.enter="add" v-model="inputtodo">
         </header>
         <section class="main">
-            <input type="checkbox" class="toggle-all">
+            <input type="checkbox" @change="changeAll" v-model="checkAll" class="toggle-all">
             <ul class="todo-list" v-cloak>
-                <li class="todo" :class="{completed:item.complete}" v-for="(item,index) in todoList">
+                <li class="todo" :class="{completed:item.complete,editing:item.isEdit}" v-for="(item,index) in renderList">
                     <div class="view">
-                        <input type="checkbox" class="toggle" v-model="item.complete" >
-                        <label>{{item.name}}</label>
-                        <button class="destroy" v-on:click="deletetodoList(index)" ></button>
+                        <input type="checkbox" @change="checkIsCheckAll" class="toggle" v-model="item.complete">
+                        <label @dblclick="edit(index)">{{item.name}}</label>
+                        <button class="destroy" v-on:click="deletetodoList(index)"></button>
                     </div>
-                    <input type="text" class="edit">
+                    <input type="text" v-focus v-if="item.isEdit" v-model="cacheEdit" @keyup.enter="saveEdit(index)" @keyup.esc="cancelEdit(index)"
+                        @blur="cancelEdit(index)" class="edit">
                 </li>
 
-                <h2>原稿--------------------------</h2>
+                <!-- <h2>原稿</h2>
                 <li class="todo ">
                     <div class="view">
                         <input type="checkbox" class="toggle">
@@ -60,25 +61,25 @@
                         <button class="destroy"></button>
                     </div>
                     <input type="text" class="edit">
-                </li>
+                </li> -->
             </ul>
         </section>
         <footer class="footer">
-            <span class="todo-count">
-                <strong>1</strong> 项 剩余
+            <span class="todo-count" v-if="getSum!=0">
+                <strong>{{getSum}}</strong> 项 剩余
             </span>
             <ul class="filters">
                 <li>
-                    <a href="#/all" class="selected">全部</a>
+                    <a href="#/all" :class="{selected:visibility=='all'}" @click="changVisibility('all')">全部</a>
                 </li>
                 <li>
-                    <a href="#/active" class="selected">未完成</a>
+                    <a href="#/active" :class="{selected:visibility=='noFinish'}" @click="changVisibility('noFinish')">未完成</a>
                 </li>
                 <li>
-                    <a href="#/completed" class="selected">完成</a>
+                    <a href="#/completed" :class="{selected:visibility=='Done'}" @click="changVisibility('Done')">完成</a>
                 </li>
             </ul>
-            <button class="clear-completed">
+            <button class="clear-completed" v-on:click="cleanAll">
                 清空列表
             </button>
         </footer>
@@ -108,37 +109,262 @@
 
 </html>
 <script>
+    let todoList = JSON.parse(window.localStorage.getItem('SZHM19toDoList'));
+    if (todoList) {
+        // 有值
+        console.log('y');
+    } else {
+        // 没值
+        console.log('n');
+        todoList = [
+            {
+                name: '吃饭',
+                complete: true,
+                isEdit: false
+            },
+            {
+                name: '睡觉',
+                complete: false,
+                isEdit: false
+            },
+            {
+                name: '打豆豆',
+                complete: true,
+                isEdit: false
+            },
+
+        ]
+    }
+    // 点击进入编辑状态自动获取焦点
+    // 注册一个自定义的全局指令 让他生效
+    // 注册一个全局自定义指令 `v-focus`
+    Vue.directive('focus', {
+        // 当被绑定的元素插入到 DOM 中时……
+        inserted: function (el) {
+            console.log('我触发啦');
+            console.log(el);
+            // 聚焦元素
+            el.focus()
+        }
+    })
+
+
     let app = new Vue({
         el: '.todoapp',
         data: {
-            inputtodo:'',
-            todoList: [{
-                name: '洗碗',
-                complete: true
-            }, {
-                name: '散步',
-                complete: false
-            }]
+            // 输入的待办事项
+            inputtodo: '',
+            // 暂存修改的内容
+            cacheEdit: '',
+            // 当前列表的筛选条件
+            visibility: 'all',
+            // 是否全选
+            checkAll:'false',
+            todoList
         },
         methods: {
             // 增
-            add(){
-            // 去空格
-                this.inputtodo=this.inputtodo.trim();
-               if(this.inputtodo!=''){
-                this.todoList.push({
-                    name:this.inputtodo,
-                    complete:false
-                })
-                // 输入完毕清空input框
-                this.inputtodo='';
-               }
+            add() {
+                // 去空格
+                this.inputtodo = this.inputtodo.trim();
+                if (this.inputtodo != '') {
+                    this.todoList.push({
+                        name: this.inputtodo,
+                        complete: false
+                    })
+                    // 输入完毕清空input框
+                    this.inputtodo = '';
+                }
             },
             // 删
-            deletetodoList(index){
-                this.todoList.splice(index,1);
+            deletetodoList(index) {
+                this.todoList.splice(index, 1);
             },
-            
+            // 双击出现修改编辑的框
+            edit(index) {
+                // 排他思想,只编辑当前选择中的数据编辑,而不是所有的都编辑
+                for (let i = 0; i < this.todoList.length; i++) {
+                    this.todoList[i].isEdit = false;
+                }
+                this.todoList[index].isEdit = !this.todoList[index].isEdit;
+                // 取值
+                this.cacheEdit = this.todoList[index].name;
+            },
+            // 取消编辑状态,保存修改好的数据
+            saveEdit(index) {
+                this.todoList[index].name = this.cacheEdit;
+                // 修改isEdit的默认值为false
+                this.todoList[index].isEdit = false;
+            },
+            // 按esc取消编辑
+            cancelEdit(index) {
+                this.todoList[index].isEdit = false;
+            },
+            // 清空所有
+            cleanAll() {
+                this.todoList = [];
+            },
+            // 修改显示的条件
+            changVisibility(data) {
+                // console.log(data);
+                this.visibility = data;
+            },
+            // 全选与反选
+            changeAll(){
+                for(let i=0;i<this.todoList.length;i++){
+                    this.todoList[i].complete=this.checkAll;
+                }
+            },
+            // 判断单个是否选中
+            checkIsCheckAll(){
+                // 总个数
+                let totalNum = this.todoList.length;
+                // 选中的个数
+                let checkNum = this.todoList.filter((v,i)=>{
+                    if(v.complete==true) return v;
+                }).length;
+                this.checkAll=totalNum==checkNum;
+
+
+                // let checkNug=0;
+                // for(let i=0;i<this.todoList.length;i++){
+                //     if(this.todoList[i].complete=true){
+                //         checkNug++;
+                //     }
+                //     return checkNug;
+                // }
+                // console.log(checkNug);
+                // this.checkAll=totalNum==checkNug;
+            }
+
+        },
+        // 计算完成数量
+        computed: {
+            getSum() {
+                let num = 0;
+                for (let i = 0; i < this.todoList.length; i++) {
+                    if (this.todoList[i].complete == false) {
+                        num++
+                    }
+                }
+                return num;
+            },
+            // 要根据条件显示,所以得计算条件约束下的数据
+            renderList() {
+                // 根据visibility的值,返回数组
+                // let backArr=[];
+                // for(let i=0;i<this.todoList.length;i++){
+                //     switch(this.visibility){
+                //         case 'all':
+                //         backArr.push(this.todoList[i]);
+                //         break;
+                //         case 'noFinish':
+                //         if(this.todoList[i].complete==false){
+                //             backArr.push(this.todoList[i]);
+                //         }
+                //         break;
+                //         case 'Done':
+                //         if(this.todoList[i].complete==true){
+                //             backArr.push(this.todoList[i]);
+                //         }
+                //         break;
+                //     }
+                // }
+                // return backArr;
+
+
+                // 使用数组的筛选方法,进行返回
+                return this.todoList.filter((v, i) => {
+                    // 每一个元素丢到V中,索引丢到i中
+                    switch (this.visibility) {
+                        case 'all':
+                           return v;
+                            break;
+                        case 'noFinish':
+                            if (v.complete == false) {
+                                return v;
+                            }
+                            break;
+                        case 'Done':
+                            if (v.complete == true) {
+                                return v;
+                            }
+                            break;
+                    }
+                })
+
+            }
+
+
+
         }
     })
+    window.onbeforeunload = function () {
+        window.localStorage.setItem('SZHM19toDoList',JSON.stringify(todoList));
+    }
+    /*
+        分析
+            √1.数据结构
+                页面中toDo列表的保存的数据
+                [{name:'洗碗',complete:false}]
+            √2.根据数据渲染页面li
+                判断是否选中
+                checkbox进行双向绑定
+            √3.点击新增
+                点击回车  获取输入的内容 增加到列表中 清空输入框 
+                输入框为空 点击回车没效果
+            √4.点击删除对应的待办事项
+                点击button 删除对应的那个事项
+                绑定时 传入下表
+            √5.编辑待办事项
+                获取到当前修改的值
+                保存到 cacheEdit 中
+                双击进入编辑状态 加上类名
+            √6.保存修改
+                编辑状态下 点击回车即可
+            √7.点击esc取消修改
+                编辑状态下 点击esc即可
+                最开始的时候直接双向绑定 取消之后 无法还原的
+                增加一个临时变量 用来保存 临时的操作 知道确认修改时 才保存 否则 直接取消
+            √8.重复编辑问题
+                代码中并没问判断是否有其他的文本框进入编辑
+                为了解决这个问题 每次进入编辑是 把所有的编辑状态全部设置为 false 再修改当前这一个即可
+            √9.失去焦点 保存 或者取消
+                问文本框增加 @blur 事件 指向 取消 或者  保存 的逻辑  即可
+            √10.清空
+                为清空按钮绑定点击事件
+                清空data中的toDoList = [] 即可完成清空
+            √11.计数
+                使用计算属性 计算未办的事项 返回个数即可
+            12.筛选高亮逻辑
+                增加一个标记当前状态的变量
+                因为选项不止有2中 字符串来记录(数字1,2,3)
+                三个a标签绑定点击事件
+                点击修改标示变量的值
+                三个a标签的类名 是需要进行判断
+            13.显示筛选的值
+                计算属性
+                生成li标签是 不是 循环总数组
+                计算属性中的数组
+                逻辑
+                    根据标示状态 进行数组的筛选
+                    返回筛选之后的值
+
+            14,15号逻辑 使用click 触发时 value并没有改变 使用change即可
+            14.全选
+                使用click 触发时 value还没有改变
+                替换为 change事件
+            15.判断是否全部选中
+                click ul 使用冒泡的方式
+                直接把事件绑定给  checkbox 使用 change事件即可
+            16.数据常驻
+                localStorage取值 
+                    有值 赋值
+                    没值 初始值[]
+                
+                浏览器关闭
+                    数据保存到 localStorage中
+            √17.鼠标编辑状态,自动获取焦点
+
+    */
 </script>
